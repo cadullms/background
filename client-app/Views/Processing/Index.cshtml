@@ -1,0 +1,11 @@
+﻿@{
+    ViewData["Title"] = "Processing";
+}
+@model client_app.Models.MessageModel;
+
+<div class="text-center">
+    <form method="post">
+        <input type="text" name="Message" value="@Model.Message" />
+        <input type="submit" />
+    </form>
+</div>

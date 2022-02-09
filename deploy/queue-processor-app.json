@@ -1,0 +1,105 @@
+{
+    "$schema": "https://schema.management.azure.com/schemas/2019-08-01/deploymentTemplate.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+        "location": {
+            "defaultValue": "northeurope",
+            "type": "String"
+        },
+        "environment_name": {
+            "type": "String"
+        },
+        "image_name": {
+            "type": "String"
+        },
+        "image_tag": {
+            "type": "String"
+        },
+        "acr_name": {
+            "type": "String"
+        },
+        "acr_password": {
+            "type": "String"
+        },
+        "queue_storage_account_name": {
+            "type": "String"
+        },
+        "queue_storage_account_key": {
+            "type": "String"
+        }
+    },
+    "variables": {},
+    "resources": [
+        {
+            "name": "queue-processor-app",
+            "type": "Microsoft.Web/containerApps",
+            "apiVersion": "2021-03-01",
+            "kind": "containerapp",
+            "location": "[parameters('location')]",
+            "properties": {
+                "kubeEnvironmentId": "[resourceId('Microsoft.Web/kubeEnvironments', parameters('environment_name'))]",
+                "configuration": {
+                    "secrets": [
+                        {
+                            "name": "acr-password",
+                            "value": "[parameters('acr_password')]"
+                        },
+                        {
+                            "name": "queue-storage-account-key",
+                            "value": "[parameters('queue_storage_account_key')]"
+                        }
+                    ],
+                    "registries": [
+                        {
+                            "server": "[concat(parameters('acr_name'),'.azurecr.io')]",
+                            "username": "[parameters('acr_name')]",
+                            "passwordSecretRef": "acr-password"
+                        }
+                    ]
+                },
+                "template": {
+                    "containers": [
+                        {
+                            "image": "[concat(parameters('image_name'),':',parameters('image_tag'))]",
+                            "name": "queue-processor-app",
+                            "resources": {
+                                "cpu": 0.5,
+                                "memory": "1Gi"
+                            }
+                        }
+                    ],
+                    "scale": {
+                        "minReplicas": 1,
+                        "maxReplicas": 1
+                    },
+                    "dapr": {
+                        "enabled": true,
+                        "appPort": "80",
+                        "appId": "queue-processor-app",
+                        "components": [
+                            {
+                                "name": "processing-queue-binding",
+                                "type": "bindings.azure.storagequeues",
+                                "version": "v1",
+                                "metadata": [
+                                    {
+                                        "name": "storageAccount",
+                                        "value": "[parameters('queue_storage_account_name')]"
+                                    },
+                                    {
+                                        "name": "storageAccessKey",
+                                        "secretRef": "queue-storage-account-key"
+                                    },
+                                    {
+                                        "name": "queue",
+                                        "value": "processing-queue"
+                                    }
+                                ]
+                            }
+                        ]
+                    }
+                }
+            }
+        }
+    ]
+}
